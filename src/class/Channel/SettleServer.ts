@@ -1,5 +1,6 @@
 import AClient from "./AClient";
 import { FuncKey, Channels } from "../../interface/ENum";
+import { WsMsg } from "../../interface/if";
 
 export default class SettleServer extends AClient {
 	addChannels(channel:string) {
@@ -21,4 +22,11 @@ export default class SettleServer extends AClient {
 			this.SendFuncKey(FuncKey.GET_CRYPTOITEM_CODE_DISTINCT, toWho);
 		}
 	}
+	private SendFuncKey(fundkey:FuncKey, toWho:string) {
+		const wsg:WsMsg = {
+			Func: fundkey,
+		}
+		this.manager.Send(JSON.stringify(wsg), toWho);
+	}
+
 }

@@ -54,11 +54,4 @@ export default abstract class AClient implements IChanelClient {
 			if (list.length>0) this.manager.Send(msg, list);
 		}
 	}
-	protected SendFuncKey(fundkey:FuncKey, toWho:string) {
-		const wsg:WsMsg = {
-			Func: fundkey,
-			toWho,
-		}
-		this.Send(JSON.stringify(wsg));
-	}
 }
