@@ -21,6 +21,7 @@ export enum ErrCode {
   HAS_ASK_IN_PROCESS = 19,
   EMERGENCY_STOPED = 20,
   JSON_PARSE_ERROR = 21,
+  NO_DATA_AFFECTED = 22,
 }
 export enum FuncKey {
 	SET_CHANNEL = "SetChannel",
@@ -34,9 +35,11 @@ export enum FuncKey {
   GET_UNFINISHED_ASKS = "getUnFinishedAsks",
 }
 export enum Channels {
-  ASK = "AskChannel",
+  ASK = "Ask",
   API_SERVER = "AskCreator",
   SETTLE_SERVER = "SettleServer",  
-  ADMIN = "AdminChannel",
-  PUB = "PublicChannel",
+  ADMIN = "Admin",
+  PUB = "Public",
+  MEMBER = "Member",
+  SERVICE = "Service",
 }

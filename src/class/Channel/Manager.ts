@@ -1,6 +1,7 @@
+import { Worker } from 'cluster';
 import WebSocket from "ws";
 // import SiteChannel from './Site';
-import ChannelClient from './Client';
+// import ChannelClient from './Client';
 import AClient from "./AClient";
 import IChannelManager from '../../interface/Channel/Manager';
 import { ClientInfo } from '../../interface/if';
@@ -23,13 +24,23 @@ export default class Manager implements IChannelManager{
 	private site: SiteChannel = {};
 	private topSite = 'AllSite';
 	private CF:ClientFactory = new ClientFactory();
+	constructor(private worker:Worker){}
+	private SendToWorker(msg:string) {
+		console.log('Manager SendToWorker', msg);
+		this.worker.send(msg);
+	}
 	Add(ws:WebSocket, url = ''):string | undefined {
 		console.log('Manager Add url', url);
 		const msg = this.anaUrl(url);
 		if(msg.ErrNo === ErrCode.PASS) {
 			const info = msg.data as ClientInfo;
 			this.AddChannel(info.IDWithSite, info.dfChannel, info.site);
-			if(!this.clients[info.IDWithSite]) this.clients[info.IDWithSite] = this.CF.get(ws, info, this);
+			if (!this.clients[info.IDWithSite]) {
+				const client = this.CF.get(ws, info, this);
+				console.log(`new user created: ${client.UserKey}`);
+				this.worker.send(`new user: ${client.UserKey}`);	
+				this.clients[info.IDWithSite] = client;
+			}
 		}
 		return msg.ErrCon;
 	}
@@ -41,6 +52,7 @@ export default class Manager implements IChannelManager{
 		if (!this.site[site][channel]) this.site[site][channel] = [];
 		const f = this.site[site][channel].find(u => u === userid);
 		if (!f) this.site[site][channel].push(userid);
+		console.log('allchannel:', this.site);
 	}
 	private anaUrl(str?:string) {
 		const msg:Msg = { ErrNo: ErrCode.PASS };
@@ -76,6 +88,8 @@ export default class Manager implements IChannelManager{
 		return msg;
 	}
 	Send(msg:string, ToID:string | string[]) {
+		this.SendToWorker(msg);
+		console.log('Manager Send:', ToID, msg);
 		if(Array.isArray(ToID)) {
 			this.SendToList(msg, ToID);
 		} else {
@@ -84,9 +98,9 @@ export default class Manager implements IChannelManager{
 			}	
 		}
 	}
-	private SendToList(msg:string, list:string[]){
+	private SendToList(msg:string, list:string[]) {
 		list.map(id => {
-			if (this.clients[id] === null) {
+			if (this.clients[id] !== null) {
 				this.clients[id].Send(msg);
 			}
 		})
@@ -110,8 +124,13 @@ export default class Manager implements IChannelManager{
 			this.site[site][channel].splice(fIdx, 1);
 		}
 	}
-	Remove(uInfo:ClientInfo) {
+	Remove(uInfo:ClientInfo, channels:string[]) {
 		this.removeFromChannel(uInfo.site, uInfo.dfChannel, uInfo.IDWithSite);
+		if (channels.length>0) {
+			channels.map((channel) => {
+				this.removeFromChannel(uInfo.site, channel, uInfo.IDWithSite);
+			});
+		}
 		console.log(uInfo.IDWithSite, this.clients[uInfo.IDWithSite].isClosed);
 		delete this.clients[uInfo.IDWithSite];
 	}

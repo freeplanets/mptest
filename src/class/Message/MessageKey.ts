@@ -1,68 +1,70 @@
 import sha256 from "sha256";
+import { ErrCode } from "../../interface/ENum";
 import { KeyVal, Msg, MsgKey, TableData } from "../../interface/if";
 import IfMsgkey from "../../interface/MsgKey";
 import Dba from '../DBA/DatabaseAdmin';
 
 export default class MessageKey implements IfMsgkey {
 	private jt: Dba;
-	private service: boolean;
-	private mkey: string;
-	constructor(private key: string, private tbname = 'MessageKey') {
+	// private service: boolean;
+	// private mkey: string;
+	private param: TableData;
+	private mkey = '';
+	constructor(private userkey: string, private tbname = 'MessageKey') {
 		this.jt = new Dba();
-		this.service = this.isServiceAcc();
-		const shakey = `Key:${this.key}, CreateTime:${new Date().getTime()}`;
-		this.mkey = sha256(shakey);
+		// this.service = this.isServiceAcc();
+		// const shakey = `Key:${this.userkey}, CreateTime:${new Date().getTime()}`;
+		// this.mkey = sha256(shakey);
+		this.param = { TableName: tbname };
 		// console.log("MessageKey constructor", shakey, this.mkey);
 	}
-	public async List(): Promise<Msg> {
-		const param:TableData = { TableName: this.tbname };
-		const f: KeyVal = {
-			Key: "UserKey",
-			Val: this.key,
+	get UserKey() {
+		return this.userkey;
+	}
+	get MKey() {
+		return this.mkey;
+	}	
+	public async getCurMKey():Promise<Msg> {
+		const param:TableData = { ...this.param };
+		const f = {
+			UserKey: this.userkey,
+			isEnd: 0
 		};
-		if (this.isService) {
-			f.Val2 = "";
-		}
 		param.filter = f;
-		const msg = this.jt.select(param);
+		param.fields = 'MKey';
+		const msg = await this.jt.select(param);
+		if (msg.ErrNo === ErrCode.PASS) {
+			if (msg.data) {
+				if(msg.data.length > 0) return msg;
+			}
+			const shakey = `Key:${this.userkey}, CreateTime:${new Date().getTime()}`;			
+		}
 		return msg;
 	}
-	public async Add(mkey?: string): Promise<Msg> {
+	public async Add(mkey:string): Promise<Msg> {
 		const MKey: MsgKey = {
-			UserKey: this.key,
-			MKey: mkey ? mkey : this.MKey,
+			UserKey: this.userkey,
+			MKey: mkey,
 		};
 		const param:TableData = {
 			TableName: this.tbname,
 			updatefields: MKey,
 		}
-		const msg = this.jt.add(param);
+		const msg = await this.jt.add(param);
+		if(msg.ErrNo === ErrCode.PASS) {
+			this.mkey = mkey;
+			msg.data = { MKey: mkey };
+		}
 		return msg;
 	}
-	get isService() {
-		return this.service;
-	}
-	public async isKeyExist(mkey: string) {
-		let isExist = false;
-		const filter: KeyVal = {
-			UserKey: this.key,
-			MKey: mkey,
+	public async endMessage(ReceiverID:string): Promise<Msg> {
+		const param:TableData = { ...this.param };
+		const f = {
+			UserKey: this.userkey,
+			ReceiverID,
+			isEnd: 1
 		};
-		const param: TableData = {
-			TableName: this.tbname,
-			filter,
-		}
-		const msg = await this.jt.select(param);
-		if (msg.affectedRows > 0) isExist = true
-		return isExist;
-	}
-	public isServiceAcc(): boolean {
-		let b = false;
-		const c: string[] = this.key.split("@");
-		if (c[1] === "service") { b = true; }
-		return b;
-	}
-	get MKey() {
-		return this.mkey;
+		param.updatefields = f;
+		return this.jt.update(param);
 	}
 }

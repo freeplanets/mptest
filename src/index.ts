@@ -1,61 +1,45 @@
-import WebSocket, { ServerOptions } from 'ws';
-import process from 'process';
+import cluster, { Worker} from "cluster";
+// import WebSocket, { ServerOptions } from 'ws';
 import dotenv from 'dotenv';
-import { IncomingMessage } from 'node:http';
-import ChannelMananger from './class/Channel/Manager';
+// import os from 'os';
+import process from 'process';
+import wsSvr from './class/server';
+import msgMgr from './class/msgMgr';
 
-const cm = new ChannelMananger();
-interface UInfo {
-	site: string;
-	UserID: string;
-}
 dotenv.config();
-const port = process.env.SERVER_PORT ? parseInt(process.env.SERVER_PORT, 10) : 4000;
-const options:ServerOptions = {
-	port,
-}
-const server = new WebSocket.Server(options);
+// const numCPUs = os.cpus().length;
 
-server.on('connection', (ws:WebSocket, req:IncomingMessage)=>{
-	// console.log('ws:', ws);
-	console.log('req:', req.socket.remoteAddress, req.headers, req.url);
-	const errMsg = cm.Add(ws, req.url);
-	if (errMsg) {
-		ws.send(errMsg, (err) => {
-			console.log('send Error:', req.socket.remoteAddress);
-		});
-		ws.close();
-	}
-	
-	//const a = chk(req.url);
-	//ws.send(JSON.stringify({ key: 'test', site: a.site, UserID: a.UserID}));
-	// ws.close();
-	/*
-	ws.on('close',()=>{
-		console.log('client left:', server.clients.size);
+if (!cluster.isWorker) {
+	console.log('my pid:', process.pid, process.argv);
+	const port = process.env.SERVER_PORT ? process.env.SERVER_PORT : '4000';
+	const wsS = new wsSvr(port)
+	cluster.fork();
+
+	cluster.on('fork', (worker:Worker)=>{
+		console.log(`Worker #${worker.id} fork`);
+		wsS.Worker = worker;
 	});
-	*/
-	/*
-	server.clients.forEach(client => {
-		if(ws !== client) client.send('received');
+	cluster.on('message', (worker:Worker, message:string)=>{
+		console.log(`${worker.id} message: ${message}`);
+		worker.send(`${worker.id} ${worker.process.pid} send msg`);
+		//worker.disconnect();
 	});
-	*/
-});
-server.on('message', (msg) => {
-	console.log('server get message', msg.toString());
-});
-server.on('close', (ws:WebSocket)=>{
-	console.log('I am closed:', ws);
-})
-function chk(str?:string) {
-	const tmp: UInfo = {
-		site: '',
-		UserID: '',
+	cluster.on('disconnect', (worker:Worker) => {
+		console.log(`disconnect - ${worker.id} - ${worker.process.pid}`);
+	});
+	cluster.on('exit', (worker, code, signal) => {
+		console.log('exit:', worker.process.pid, 'died', code, signal);
+	});
+	wsS.MainProcess = cluster;
+} else {
+	const mMgr = new msgMgr(process);
+	/*
+	process.on('message',(msg:string)=>{
+		console.log('process message:', msg);
+	});
+	if(process.send) {
+		console.log('process:', process.pid, 'send');
+		process.send(process.pid);
 	}
-	if(str) {
-		const sp = str.split('/');
-		if(sp[1]) tmp.site = sp[1];
-		if(sp[2]) tmp.UserID = sp[2];
-	}
-	return tmp;
+	*/	
 }

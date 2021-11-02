@@ -31,16 +31,14 @@ class Mystr {
 		return fmt.replace(reg, func);
 	}
 	toJSON(str:string):AnyObject | undefined{
-    let msg:AnyObject;
+    let msg:AnyObject | undefined;
     try {
       msg = JSON.parse(str);
-      return msg;
     } catch( err ) {
-      console.log('SettleProc JSON parse error:');
-      console.log( str );
-      console.log( err );
+      console.log('SettleProc JSON parse error:', str);
+      // console.log( err );
     }
-		return;
+		return msg;
 	}
 }
 export default new Mystr();

@@ -65,6 +65,7 @@ export function Query(sql: string, conn: PoolConnection, params?: IAxParams): Pr
         conn.query(sql, params).then((res: DbAns) => {
             msg = Object.assign(msg, res);
             if (msg.affectedRows === 0) {
+                msg.ErrNo = ErrCode.NO_DATA_AFFECTED;
                 msg.debug = sql;
                 msg.debugPaam = params;
             }

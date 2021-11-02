@@ -31,7 +31,8 @@ export default class ApiServer extends AClient {
 		}
 	}
 	SendInitMsg() {
-		this.SendFuncKey(FuncKey.GET_CRYPTOITEM_CODE_DISTINCT, this.uInfo.IDWithSite);
+		// this.SendFuncKey(FuncKey.GET_CRYPTOITEM_CODE_DISTINCT, this.uInfo.IDWithSite);
+		this.Send(`Welcome ${this.uInfo.IDWithSite}`);
 	}
 	private SendFuncKey(fundkey:FuncKey, toWho:string) {
 		const wsg:WsMsg = {

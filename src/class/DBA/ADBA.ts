@@ -4,7 +4,7 @@ import ASetSql from "./ASetSql";
 import { getConnection, Query, IAxParams, PoolConnection } from './db';
 
 export default abstract class ADBA<T> {
-  constructor(private conn?:PoolConnection) {}
+  constructor() {}
   public abstract add(t: T): void;
   public abstract update(t: T): void;
   public abstract remove(t: T): void;
@@ -12,11 +12,10 @@ export default abstract class ADBA<T> {
   public abstract getSql(t: T, f: ASetSql<T>): string;
   async Query(sql:string,param?:IAxParams) {
     let msg:Msg={};
-    if(!this.conn) {
-      this.conn = await getConnection();
-    }
-    if (this.conn) {
-      msg = await Query(sql, this.conn, param);
+     const conn = await getConnection();
+    if (conn) {
+      msg = await Query(sql, conn, param);
+      await conn.release();
     } else {
       msg.ErrNo = ErrCode.GET_CONNECTION_ERR;
     }

@@ -4,17 +4,21 @@ import IChanelClient from '../../interface/Channel/Client';
 import IChannelManager from '../../interface/Channel/Manager';
 import { ClientInfo, WsMsg } from '../../interface/if';
 import StrFunc from '../Function/MyStr';
-import { FuncKey } from '../../interface/ENum';
+import { Channels, FuncKey } from '../../interface/ENum';
+import sha256 from 'sha256';
 
 export default abstract class AClient implements IChanelClient {
 	protected channels:string[] = [];
-	protected toJSON = StrFunc.toJSON;
+	protected curChatID = '';
 	constructor(protected ws:WebSocket, protected uInfo:ClientInfo, protected manager:IChannelManager) {
 		this.init();
 		this.SendInitMsg(`Client ${uInfo.dfChannel} ${this.UserID} create!`);
 	}
 	abstract addChannels(channel:string):void;
 	abstract SendInitMsg(msg?:string):void;
+	get UserKey() {
+		return this.uInfo.IDWithSite;
+	}
 	get UserID() {
 		return this.uInfo.UserID;
 	}
@@ -28,10 +32,11 @@ export default abstract class AClient implements IChanelClient {
 		});
 		this.ws.on('close',()=>{
 			console.log('client left:', this.UserID);
-			this.manager.Remove(this.uInfo);
+			this.manager.Remove(this.uInfo, this.channels);
 		});
 	}	
 	Send(msg:string) {
+		console.log('AClient Send to', this.uInfo.UserID, msg);
 		this.ws.send(msg, (error) => {
 			if(error) {
 				console.log('Send Error:', error);
@@ -40,18 +45,38 @@ export default abstract class AClient implements IChanelClient {
 	}
 	onMessage(msg:string, list?:string[]) {
 		const ans:WsMsg | undefined = this.toJSON(msg);
+		console.log('onMessage', msg);
 		if (ans) {
 			// let list:string|string[] = '';
-			if (!list) list = [];
-			let toSite = this.uInfo.site;
-			if (ans.toSite) toSite = ans.toSite;
-			list = list.concat(this.manager.getChannelMember(toSite, ans.ChannelName));
-			list = list.concat(this.manager.getChannelMember(toSite, ans.toChannels));	
-			if(ans.toWho) {
-				list.push(`${ans.toWho}@${this.uInfo.site}`);
+			switch(ans.Func) {
+				case FuncKey.SET_CHANNEL:
+					console.log(ans);
+					if(ans.ChannelName) this.addChannels(ans.ChannelName);
+					break;
+				default:
+					if (!list) list = [];
+					let toSite = this.uInfo.site;
+					if (!this.curChatID) {
+						if(ans.toWho) {
+							list.push(`${ans.toWho}@${this.uInfo.site}`);
+						} else if (ans.toChannels) {
+							list = list.concat(this.manager.getChannelMember(toSite, ans.toChannels));
+						} else if (this.uInfo.dfChannel === Channels.MEMBER) {
+							list = list.concat(this.manager.getChannelMember(toSite, Channels.SERVICE));
+						}	
+					}
+					console.log('onMessage list:', list);
+					if (!this.curChatID) this.curChatID = this.createChatRoomID();
+					ans.ChatRoomID = this.curChatID;
+					if (list.length>0) this.manager.Send(JSON.stringify(ans), list);
+					else this.Send('No service man online!!');
 			}
-			console.log('onMessage list:', list);
-			if (list.length>0) this.manager.Send(msg, list);
 		}
+	}
+	protected toJSON(str:string) {
+		return StrFunc.toJSON(str);
+	}
+	private createChatRoomID():string {
+		return sha256(`${this.uInfo.IDWithSite}-${new Date().getTime()}`);
 	}
 }

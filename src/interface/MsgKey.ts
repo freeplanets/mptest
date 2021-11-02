@@ -1,6 +1,9 @@
 import { Msg } from "./if";
+
 export default interface Msgkey {
-	List(): Promise<Msg>;
-	Add(mkey?: string): Promise<Msg>;
-	isKeyExist(mkey: string): Promise<boolean>;
+	UserKey:string;
+	MKey:string;
+	getCurMKey():Promise<Msg>;
+	Add(mkey:string): Promise<Msg>;
+	endMessage(ReceiverID:string): Promise<Msg>;
 }
