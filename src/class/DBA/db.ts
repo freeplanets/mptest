@@ -62,8 +62,12 @@ export function doQuery(sql: string, conn: PoolConnection, params?: IAxParams): 
 export function Query(sql: string, conn: PoolConnection, params?: IAxParams): Promise<Msg> {
     let msg: Msg = { ErrNo: ErrCode.PASS };
     return new Promise((resolve) => {
-        conn.query(sql, params).then((res: DbAns) => {
-            msg = Object.assign(msg, res);
+        conn.query(sql, params).then((res) => {
+            if(Array.isArray(res)) {
+                msg.data = res;
+            } else {
+                msg = Object.assign(msg, res as DbAns);
+            }
             if (msg.affectedRows === 0) {
                 msg.ErrNo = ErrCode.NO_DATA_AFFECTED;
                 msg.debug = sql;

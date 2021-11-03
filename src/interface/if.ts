@@ -86,12 +86,13 @@ export interface WsMsg extends AnyObject {
 	ChannelName?: string;
 	ChatRoomID?: string;
 	ReceiverID?: string;
+	UserKey?:string;
 	toSite?:string;
 	toChannels?:string;
 	toWho?:string;
 	data?:any;
-	Ask?:AnyObject;
-	Asks?:AnyObject | AnyObject[];
+	// Ask?:AnyObject;
+	// Asks?:AnyObject | AnyObject[];
 }
 export interface ClientInfo {
 	site: string;

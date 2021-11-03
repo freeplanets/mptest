@@ -1,4 +1,4 @@
-import { MsgChat, QMsg } from "../interface/if";
+import { MsgChat, QMsg, WsMsg } from "../interface/if";
 import Message from "./Message/Message";
 import StrFunc from '../class/Function/MyStr';
 import { FuncKey } from "../interface/ENum";
@@ -10,38 +10,57 @@ export default class msgMgr {
 			// console.log('in msgMgr process message:', msg);
 			this.OnMessage(msg);
 		});
-		if(process.send) {
-			console.log('in msgMgr process:', process.pid, 'send');
-			process.send(process.pid);
-		}
 		this.process = process;
+		this.Send(`in msgMgr process: ${this.process.pid}`);
 	}
 	private list:Message[] = [];
+	Send(msg:string) {
+		if(process.send) {
+			console.log(msg);
+			process.send(msg);
+		}
+	}
 	async Add(userkey:string) {
 		let mkey;
 		const f = this.list.find(itm => itm.Userkey === userkey);
 		if (!f) {
-			const me = new Message(userkey);
-			mkey = await me.getMKey()
-			this.list.push(new Message(userkey));
+			console.log('msgMgr Add:', userkey);
+			const me = new Message(userkey, this);
+			mkey = await me.getMKey();
+			await me.Get();
+			this.list.push(me);
 		} else {
+			console.log('msgMgr not found:', userkey);
 			mkey = await f.getMKey();
+			await f.Get();
 		}
-		return mkey;
+		const wsg: WsMsg = {
+			Func:FuncKey.GET_MKEY,
+			UserKey: userkey,
+			ChatRoomID: mkey,
+		}
+		this.Send(JSON.stringify(wsg));
 	}
-	async SaveMessage(userkey:string, msg:QMsg) {
-		const f = this.list.find(itm => itm.Userkey === userkey);
+	async SaveMessage(ChatRoomID:string, msg:string) {
+		const f = this.list.find(itm => itm.MKey === ChatRoomID);
 		if (f) {
 			await f.Add(msg);
 		}
 	}
-	OnMessage(msg:string) {
+	async OnMessage(msg:string) {
 		const obj = StrFunc.toJSON(msg);
 		if(obj) {
-			const mc = obj as MsgChat;
+			const mc = obj as WsMsg;
+			//console.log('OnMessage JSON:', mc);
+			console.log(`${mc.Func ? mc.Func : 'default:'}`, mc);
 			switch(mc.Func) {
-				case FuncKey.SET_CHANNEL:		//client add
-
+				case FuncKey.SAVE_MESSAGE:		//client send msg
+					if(mc.ChatRoomID && mc.Message) this.SaveMessage(mc.ChatRoomID, mc.Message);
+					break;
+				case FuncKey.GET_MKEY:	// client login
+					if(mc.UserKey) await this.Add(mc.UserKey)
+					break;
+				default:
 			}
 		} else {
 			console.log(`message pass: ${msg}`);

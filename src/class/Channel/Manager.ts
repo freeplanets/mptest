@@ -3,11 +3,12 @@ import WebSocket from "ws";
 // import SiteChannel from './Site';
 // import ChannelClient from './Client';
 import AClient from "./AClient";
-import IChannelManager from '../../interface/Channel/Manager';
-import { ClientInfo } from '../../interface/if';
+import IfChannelManager from '../../interface/Channel/Manager';
+import { ClientInfo, WsMsg } from '../../interface/if';
 import { Msg } from "../../interface/if";
-import { ErrCode } from "../../interface/ENum";
+import { ErrCode, FuncKey } from "../../interface/ENum";
 import ClientFactory from './ClientFactory';
+import StrFunc from '../Function/MyStr';
 
 
 interface AnySite {
@@ -19,15 +20,24 @@ interface AnyChannel {
 interface SiteChannel {
 	[key:string]: AnyChannel;
 }
-export default class Manager implements IChannelManager{
+export default class Manager implements IfChannelManager{
 	private clients:AnySite = {};
 	private site: SiteChannel = {};
 	private topSite = 'AllSite';
 	private CF:ClientFactory = new ClientFactory();
-	constructor(private worker:Worker){}
-	private SendToWorker(msg:string) {
+	constructor(private worker:Worker){
+		this.worker.on('message', (msg) => {
+			this.OnMessage(msg);
+		});
+	}
+	SendToWorker(msg:string, ChatRoomID:string) {
 		console.log('Manager SendToWorker', msg);
-		this.worker.send(msg);
+		const chat:WsMsg = {
+			Func: FuncKey.SAVE_MESSAGE,
+			ChatRoomID,
+			Message: msg,
+		}
+		this.worker.send(JSON.stringify(chat));
 	}
 	Add(ws:WebSocket, url = ''):string | undefined {
 		console.log('Manager Add url', url);
@@ -38,7 +48,11 @@ export default class Manager implements IChannelManager{
 			if (!this.clients[info.IDWithSite]) {
 				const client = this.CF.get(ws, info, this);
 				console.log(`new user created: ${client.UserKey}`);
-				this.worker.send(`new user: ${client.UserKey}`);	
+				const wsg:WsMsg = {
+					Func: FuncKey.GET_MKEY,
+					UserKey: client.UserKey,
+				}
+				this.worker.send(JSON.stringify(wsg));	
 				this.clients[info.IDWithSite] = client;
 			}
 		}
@@ -87,8 +101,8 @@ export default class Manager implements IChannelManager{
 		msg.data = tmp;
 		return msg;
 	}
-	Send(msg:string, ToID:string | string[]) {
-		this.SendToWorker(msg);
+	Send(msg:string, ToID:string | string[], ChatRoomID?:string) {
+		if(ChatRoomID) this.SendToWorker(msg, ChatRoomID);
 		console.log('Manager Send:', ToID, msg);
 		if(Array.isArray(ToID)) {
 			this.SendToList(msg, ToID);
@@ -133,5 +147,38 @@ export default class Manager implements IChannelManager{
 		}
 		console.log(uInfo.IDWithSite, this.clients[uInfo.IDWithSite].isClosed);
 		delete this.clients[uInfo.IDWithSite];
+	}
+	SetMKey(userkey?:string, ChatRoomID?:string) {
+		console.log(`Manager SetMKey: ${userkey} => ${ChatRoomID}`);
+		if(userkey && ChatRoomID) {
+			if(this.clients[userkey]) {
+				this.clients[userkey].ChatRoomID = ChatRoomID;
+			}
+		}
+	}
+	SendMessage(userkey?:string, msg?:string) {
+		if(userkey && msg) {
+			if(this.clients[userkey]) {
+				this.clients[userkey].Send(msg);
+			}
+		}		
+	}
+	OnMessage(msg:any) {
+		const tmp = StrFunc.toJSON(msg);
+		if (tmp) {
+			console.log('manager worker onmessage:', tmp);
+			const wsg = tmp as WsMsg;
+			switch(wsg.Func) {
+				case FuncKey.GET_MKEY:
+					this.SetMKey(wsg.UserKey, wsg.ChatRoomID);
+					break;
+				case FuncKey.MESSAGE:
+					this.SendMessage(wsg.UserKey, msg);
+					break;
+				default:
+			}
+		} else {
+			console.log('manager worker onmessage:', msg);
+		}
 	}
 }

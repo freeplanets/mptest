@@ -24,7 +24,7 @@ export default class MessageKey implements IfMsgkey {
 	get MKey() {
 		return this.mkey;
 	}	
-	public async getCurMKey():Promise<Msg> {
+	public async getCurMKey():Promise<string> {
 		const param:TableData = { ...this.param };
 		const f = {
 			UserKey: this.userkey,
@@ -32,14 +32,20 @@ export default class MessageKey implements IfMsgkey {
 		};
 		param.filter = f;
 		param.fields = 'MKey';
-		const msg = await this.jt.select(param);
+		let msg = await this.jt.select(param);
+		console.log('getCurMKey:', msg);
 		if (msg.ErrNo === ErrCode.PASS) {
-			if (msg.data) {
-				if(msg.data.length > 0) return msg;
+			if (msg.data && msg.data.length > 0) {
+				// msg.MKey = msg.data[0].MKey;
+				this.mkey = msg.data[0].MKey;
+			} else {
+				const shakey = sha256(`Key:${this.userkey},CreateTime:${new Date().getTime()}`);
+				console.log('getCurMKey notfound:', shakey, msg);
+				msg = await this.Add(shakey);
+				this.mkey = msg.MKey as string;	
 			}
-			const shakey = `Key:${this.userkey}, CreateTime:${new Date().getTime()}`;			
 		}
-		return msg;
+		return this.mkey;
 	}
 	public async Add(mkey:string): Promise<Msg> {
 		const MKey: MsgKey = {
@@ -53,7 +59,7 @@ export default class MessageKey implements IfMsgkey {
 		const msg = await this.jt.add(param);
 		if(msg.ErrNo === ErrCode.PASS) {
 			this.mkey = mkey;
-			msg.data = { MKey: mkey };
+			msg.MKey = mkey;
 		}
 		return msg;
 	}

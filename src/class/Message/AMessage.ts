@@ -1,4 +1,4 @@
-import { Msg, QMsg } from "../../interface/if";
+import { Msg } from "../../interface/if";
 import MessageCont from "./MessageCont";
 import MessageKey from "./MessageKey";
 
@@ -13,6 +13,6 @@ export default abstract class AMessage {
 	}
 	abstract getMKey():Promise<string|undefined>;
 	abstract endMessage(ReceiverID: string):Promise<Msg>;
-	public abstract Add(msg:QMsg): Promise<Msg>;
-	public abstract Get(): Promise<Msg>;
+	public abstract Add(msg:string): Promise<Msg>;
+	public abstract Get(): Promise<void>;
 }

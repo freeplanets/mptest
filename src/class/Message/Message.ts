@@ -1,33 +1,54 @@
-import { ErrCode } from "../../interface/ENum";
-import { Msg, QMsg, MsgCont } from "../../interface/if";
+import { ErrCode, FuncKey } from "../../interface/ENum";
+import { Msg, QMsg, MsgCont, WsMsg } from "../../interface/if";
 import AMessage from "./AMessage";
 import MessageCont from './MessageCont';
+import msgMgr from "../msgMgr";
 
 export default class Message extends AMessage {
 	// private ReceiverID: string;
-	private mkey?: string;
+	private mMgr:msgMgr;
+	constructor(userkey:string, mmgr:msgMgr) {
+		super(userkey);
+		this.mMgr = mmgr;
+	}
+	get MKey() {
+		return this.mKey.MKey;
+	}
 	public async getMKey() {
-		if(!this.mkey) {
-			const msg = await this.mKey.getCurMKey();
-			console.log('Message getMKey', msg);
-			if (msg.ErrNo === ErrCode.PASS) {
-				this.mkey = msg.data[0].MKey;
-				if(this.mkey)	this.mCont = new MessageCont(this.mkey);
+		if(!this.MKey) {
+			const MKey = await this.mKey.getCurMKey();
+			console.log('Message getMKey:', MKey);
+			if (MKey) {
+				this.mCont = new MessageCont(MKey);
 			}
 		}
-		return this.mkey;
+		return this.MKey;
 	}
 	public async endMessage(ReceiverID: string) {
 		return this.mKey.endMessage(ReceiverID)
 	}
-	public async Get(): Promise<Msg> {
-		return this.mCont.Get();
+	public async Get() {
+		const msg = await this.mCont.Get();
+		if (msg.ErrNo === ErrCode.PASS) {
+			if(msg.data && msg.data.length > 0) {
+				const datas = msg.data as MsgCont[];
+				datas.map((data) => {
+					const wsg:WsMsg = {
+						Func: FuncKey.MESSAGE,
+						ChatRoomID: data.MKey,
+						Message: data.MsgCont,
+						UserKey: this.mKey.UserKey,
+					};
+					this.mMgr.Send(JSON.stringify(wsg));
+				});
+			}
+		}
 	}
-	public async Add(msg:QMsg): Promise<Msg> {
-		if(this.mkey) {
+	public async Add(msg:string): Promise<Msg> {
+		if(this.MKey) {
 			const cont:MsgCont = {
-				MKey: this.mkey,
-				MsgCont: JSON.stringify(msg),
+				MKey: this.MKey,
+				MsgCont: msg,
 			}
 			return this.mCont.Add(cont);	
 		}
