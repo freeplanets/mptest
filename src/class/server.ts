@@ -26,8 +26,8 @@ export default class server {
 			console.log('connected', JSON.stringify(args), ',clients', ws.clients);
 		});
 		ws.on('connection', (ws:WebSocket, request:IncomingMessage) => {
-			// console.log('req:', request.socket.remoteAddress, request.headers, request.url);
-			console.log('req:', request.url);
+			console.log('req:', request.socket.remoteAddress, request.headers, request.url);
+			// console.log('req:', request.url);
 			const errMsg = this.cm.Add(ws, request.url);
 			if (errMsg) {
 				ws.send(errMsg, (err) => {

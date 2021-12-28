@@ -1,7 +1,5 @@
 import { Worker } from 'cluster';
 import WebSocket from "ws";
-// import SiteChannel from './Site';
-// import ChannelClient from './Client';
 import AClient from "./AClient";
 import IfChannelManager from '../../interface/Channel/Manager';
 import { ClientInfo, WsMsg } from '../../interface/if';
@@ -67,6 +65,9 @@ export default class Manager implements IfChannelManager{
 		const f = this.site[site][channel].find(u => u === userid);
 		if (!f) this.site[site][channel].push(userid);
 		console.log('allchannel:', this.site);
+		if (this.site[site].Service && this.site[site].Service.length > 1) {
+			this.notifyChannel('Service', this.site[site].Service);
+		}
 	}
 	private anaUrl(str?:string) {
 		const msg:Msg = { ErrNo: ErrCode.PASS };
@@ -145,7 +146,7 @@ export default class Manager implements IfChannelManager{
 				this.removeFromChannel(uInfo.site, channel, uInfo.IDWithSite);
 			});
 		}
-		console.log(uInfo.IDWithSite, this.clients[uInfo.IDWithSite].isClosed);
+		console.log(uInfo.IDWithSite, this.clients[uInfo.IDWithSite].isClosed, this.site);
 		delete this.clients[uInfo.IDWithSite];
 	}
 	SetMKey(userkey?:string, ChatRoomID?:string) {
@@ -180,5 +181,7 @@ export default class Manager implements IfChannelManager{
 		} else {
 			console.log('manager worker onmessage:', msg);
 		}
+	}
+	notifyChannel(chatRoomID:string, chMembers:string[]) {
 	}
 }
